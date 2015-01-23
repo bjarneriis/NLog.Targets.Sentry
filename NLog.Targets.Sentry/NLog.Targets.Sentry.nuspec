@@ -13,9 +13,7 @@
     <copyright>$copyright$</copyright>
     <tags>NLog Sentry Log Logging</tags>
     <releaseNotes>
-       Version 1.0.0
-       -------------
-       Initial release
+       Version 1.0.0: Initial release
     </releaseNotes>
   </metadata>
 </package>
