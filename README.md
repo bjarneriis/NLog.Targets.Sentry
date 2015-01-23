@@ -1,7 +1,7 @@
 Sentry Target for NLog
 ======================
 
-**NLog Sentry** is a custom target for [NLog](http://nlog-project.org/) allowing you to send logging messages to the [Sentry](http://getsentry.com) logging service.
+**NLog Sentry** is a custom target for [NLog](http://nlog-project.org/) enabling you to send logging messages to the [Sentry](http://getsentry.com) logging service.
 
 ## Configuration
 
