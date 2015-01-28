@@ -12,8 +12,8 @@
     <description>$description$</description>
     <copyright>$copyright$</copyright>
     <tags>NLog Sentry Log Logging</tags>
-    <releaseNotes>
-       Version 1.0.0: Initial release
+    <releaseNotes>1. Changed namespace to NLog.Targets to comply with convention.
+2. SentryTarget now has Layout.
     </releaseNotes>
   </metadata>
 </package>

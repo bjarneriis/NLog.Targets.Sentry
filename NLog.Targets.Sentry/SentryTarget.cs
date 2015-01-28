@@ -1,26 +1,30 @@
 ﻿using NLog.Config;
 using SharpRaven;
 
-namespace NLog.Targets.Sentry
+// ReSharper disable CheckNamespace
+namespace NLog.Targets
+// ReSharper restore CheckNamespace
 {
     [Target("Sentry")]
-    public class SentryTarget : Target
+    public class SentryTarget : TargetWithLayout
     {
         [RequiredParameter]
         public string Dsn { get; set; }
 
         protected override void Write(LogEventInfo logEvent)
         {
-            var sentryClient = new RavenClient(Dsn);
+            RavenClient sentryClient = new RavenClient(Dsn);
+            string message = Layout.Render(logEvent);
 
             if (logEvent.Exception != null)
             {
-                sentryClient.CaptureException(logEvent.Exception, logEvent.Message);
+                sentryClient.CaptureException(logEvent.Exception, message);
             }
             else
             {
-                sentryClient.CaptureMessage(logEvent.Message);
+                sentryClient.CaptureMessage(message);
             }
         }
     }
 }
+

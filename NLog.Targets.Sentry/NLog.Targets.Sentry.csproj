@@ -52,7 +52,9 @@
     <Compile Include="SentryTarget.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="NLog.Targets.Sentry.nuspec" />
+    <None Include="NLog.Targets.Sentry.nuspec">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
