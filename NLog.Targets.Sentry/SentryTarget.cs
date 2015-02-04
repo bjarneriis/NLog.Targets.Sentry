@@ -13,13 +13,13 @@ namespace NLog.Targets
     [Target("Sentry")]
     public class SentryTarget : TargetWithLayout
     {
-        private Dsn _dsn;
-        private readonly Lazy<IRavenClient> _client;
+        private Dsn dsn;
+        private readonly Lazy<IRavenClient> client;
 
         /// <summary>
         /// Map of NLog log levels to Raven/Sentry log levels
         /// </summary>
-        protected static readonly IDictionary<LogLevel, ErrorLevel> LoggingLevelMap = new Dictionary<LogLevel, ErrorLevel>()
+        protected static readonly IDictionary<LogLevel, ErrorLevel> LoggingLevelMap = new Dictionary<LogLevel, ErrorLevel>
         {
             {LogLevel.Debug, ErrorLevel.Debug},
             {LogLevel.Error, ErrorLevel.Error},
@@ -35,8 +35,8 @@ namespace NLog.Targets
         [RequiredParameter]
         public string Dsn
         {
-            get { return _dsn == null ? null : _dsn.ToString(); }
-            set { _dsn = new Dsn(value); }
+            get { return dsn == null ? null : dsn.ToString(); }
+            set { dsn = new Dsn(value); }
         }
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace NLog.Targets
         /// </summary>
         public SentryTarget()
         {
-            _client = new Lazy<IRavenClient>(() => new RavenClient(_dsn));
+            client = new Lazy<IRavenClient>(() => new RavenClient(dsn));
         }
 
         /// <summary>
@@ -58,7 +58,7 @@ namespace NLog.Targets
         /// <param name="ravenClient">A <see cref="IRavenClient"/></param>
         internal SentryTarget(IRavenClient ravenClient) : this()
         {
-            _client = new Lazy<IRavenClient>(() => ravenClient);
+            client = new Lazy<IRavenClient>(() => ravenClient);
         }
 
         /// <summary>
@@ -67,25 +67,20 @@ namespace NLog.Targets
         /// <param name="logEvent">Logging event to be written out.</param>
         protected override void Write(LogEventInfo logEvent)
         {
-            if (logEvent.Level == LogLevel.Off) return;
-
             try
             {
                 var extras = logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
-                _client.Value.Logger = logEvent.LoggerName;
+                client.Value.Logger = logEvent.LoggerName;
 
                 if (logEvent.Exception == null && CaptureMessages)
                 {
-                    var message = Layout.Render(logEvent);
-                    if (string.IsNullOrEmpty(message)) return;
-
-                    var sentryMessage = new SentryMessage(message);
-                    _client.Value.CaptureMessage(sentryMessage, level: LoggingLevelMap[logEvent.Level], extra: extras);
+                    var sentryMessage = new SentryMessage(Layout.Render(logEvent));
+                    client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras);
                 }
                 else if (logEvent.Exception != null)
                 {
                     var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                    _client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage);
+                    client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage);
                 }
             }
             catch (Exception e)
