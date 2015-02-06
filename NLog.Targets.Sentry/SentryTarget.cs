@@ -40,9 +40,9 @@ namespace NLog.Targets
         }
 
         /// <summary>
-        /// Determins whether event messages will be captured as well as exceptions
+        /// Determines whether events with no exceptions will be send to Sentry or not
         /// </summary>
-        public bool CaptureMessages { get; set; }
+        public bool IgnoreEventsWithNoException { get; set; }
 
         /// <summary>
         /// Constructor
@@ -72,7 +72,9 @@ namespace NLog.Targets
                 var extras = logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
                 client.Value.Logger = logEvent.LoggerName;
 
-                if (logEvent.Exception == null && CaptureMessages)
+                // If the log event did not contain an exception and we're not ignoring
+                // those kinds of events then we'll send a "Message" to Sentry
+                if (logEvent.Exception == null && !IgnoreEventsWithNoException)
                 {
                     var sentryMessage = new SentryMessage(Layout.Render(logEvent));
                     client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras);
