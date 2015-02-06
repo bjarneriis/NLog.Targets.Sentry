@@ -58,7 +58,7 @@
     <Compile Include="SentryTargetTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <None Include="Packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NLog.Targets.Sentry\NLog.Targets.Sentry.csproj">

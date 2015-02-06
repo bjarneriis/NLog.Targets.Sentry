@@ -12,8 +12,8 @@
     <description>$description$</description>
     <copyright>$copyright$</copyright>
     <tags>NLog Sentry Log Logging</tags>
-    <releaseNotes>1. Changed namespace to NLog.Targets to comply with convention.
-2. SentryTarget now has Layout.
+    <releaseNotes>Added bool property "IgnoreEventsWithNoException" to target.
+If this is set to true then only events containing an exception is sent to Sentry.
     </releaseNotes>
   </metadata>
 </package>
