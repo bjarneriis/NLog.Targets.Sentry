@@ -17,7 +17,7 @@ To use the Sentry target, simply add it an extension in the NLog.config file and
   </extensions>
 
   <targets>
-    <target name="Sentry" type="Sentry" dns="<your sentry dns>"/>
+    <target name="Sentry" type="Sentry" dsn="<your sentry dsn>"/>
   </targets>
 
   <rules>
