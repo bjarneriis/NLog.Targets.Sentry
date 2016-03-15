@@ -45,6 +45,11 @@ namespace NLog.Targets
         public bool IgnoreEventsWithNoException { get; set; }
 
         /// <summary>
+        /// Determines whether event properites will be sent to sentry as Tags or not
+        /// </summary>
+        public bool SendLogEventInfoPropertiesAsTags { get; set; }
+
+        /// <summary>
         /// Constructor
         /// </summary>
         public SentryTarget()
@@ -69,7 +74,14 @@ namespace NLog.Targets
         {
             try
             {
-                var extras = logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
+                var tags = SendLogEventInfoPropertiesAsTags
+                    ? logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString())
+                    : null;
+
+                var extras = SendLogEventInfoPropertiesAsTags
+                    ? null
+                    : logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
+
                 client.Value.Logger = logEvent.LoggerName;
 
                 // If the log event did not contain an exception and we're not ignoring
@@ -77,12 +89,12 @@ namespace NLog.Targets
                 if (logEvent.Exception == null && !IgnoreEventsWithNoException)
                 {
                     var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                    client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras);
+                    client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
                 }
                 else if (logEvent.Exception != null)
                 {
                     var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                    client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage);
+                    client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
                 }
             }
             catch (Exception e)
