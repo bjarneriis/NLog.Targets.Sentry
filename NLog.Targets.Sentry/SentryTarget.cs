@@ -84,23 +84,40 @@ namespace NLog.Targets
 
                 client.Value.Logger = logEvent.LoggerName;
 
+
                 // If the log event did not contain an exception and we're not ignoring
                 // those kinds of events then we'll send a "Message" to Sentry
-                if (logEvent.Exception == null && !IgnoreEventsWithNoException)
+                if (logEvent.Exception != null || !IgnoreEventsWithNoException)
                 {
-                    var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                    client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
-                }
-                else if (logEvent.Exception != null)
-                {
-                    var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                    client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
+                    client.Value.Capture(LogEventToSentry(logEvent));
                 }
             }
             catch (Exception e)
             {
                 InternalLogger.Error("Unable to send Sentry request: {0}", e.Message);
             }
+        }
+
+        private SentryEvent LogEventToSentry(LogEventInfo logEvent)
+        {
+            var sentryEvent = logEvent.Exception == null
+                ? new SentryEvent(Layout.Render(logEvent))
+                : new SentryEvent(logEvent.Exception);
+
+            sentryEvent.Level = LoggingLevelMap[logEvent.Level];
+
+            if (SendLogEventInfoPropertiesAsTags)
+            {
+                var props = logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
+                sentryEvent.Extra = props;
+
+                foreach (var tag in props)
+                {
+                    sentryEvent.Tags.Add(tag);
+                }
+            }
+            
+            return sentryEvent;
         }
     }
 }
