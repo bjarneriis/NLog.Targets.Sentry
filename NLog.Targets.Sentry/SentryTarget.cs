@@ -87,7 +87,7 @@ namespace NLog.Targets
 
                 // If the log event did not contain an exception and we're not ignoring
                 // those kinds of events then we'll send a "Message" to Sentry
-                if ( (logEvent.Exception != null && !IgnoreEventsWithNoException) || (logEvent.Exception != null))
+                if (logEvent.Exception != null || !IgnoreEventsWithNoException)
                 {
                     client.Value.Capture(LogEventToSentry(logEvent));
                 }
