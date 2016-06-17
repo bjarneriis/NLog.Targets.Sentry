@@ -23,6 +23,7 @@ namespace NLog.Targets
         /// <summary>
         /// Determines whether events with no exceptions will be send to Sentry or not
         /// </summary>
+        [Obsolete("Use target filter conditions instead. See: https://github.com/NLog/NLog/wiki/Conditions")]
         public bool IgnoreEventsWithNoException { get; set; }
 
         /// <summary>
@@ -75,12 +76,15 @@ namespace NLog.Targets
             var client = CreateClient(logEvent);
             // If the log event did not contain an exception and we're not ignoring
             // those kinds of events then we'll send a "Message" to Sentry
-            if (logEvent.Exception == null && !IgnoreEventsWithNoException)
+            if (logEvent.Exception == null)
             {
-                var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                client.CaptureMessage(sentryMessage, level.Value, extra: extras, tags: tags);
+                if (!IgnoreEventsWithNoException)
+                {
+                    var sentryMessage = new SentryMessage(Layout.Render(logEvent));
+                    client.CaptureMessage(sentryMessage, level.Value, extra: extras, tags: tags);
+                }
             }
-            else if (logEvent.Exception != null)
+            else
             {
                 var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
                 client.CaptureException(logEvent.Exception, extra: extras, level: level.Value, message: sentryMessage, tags: tags);
