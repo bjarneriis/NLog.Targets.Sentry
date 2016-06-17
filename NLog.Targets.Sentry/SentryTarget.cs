@@ -72,34 +72,27 @@ namespace NLog.Targets
         /// <param name="logEvent">Logging event to be written out.</param>
         protected override void Write(LogEventInfo logEvent)
         {
-            try
+            var tags = SendLogEventInfoPropertiesAsTags
+                ? logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString())
+                : null;
+
+            var extras = SendLogEventInfoPropertiesAsTags
+                ? null
+                : logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
+
+            client.Value.Logger = logEvent.LoggerName;
+
+            // If the log event did not contain an exception and we're not ignoring
+            // those kinds of events then we'll send a "Message" to Sentry
+            if (logEvent.Exception == null && !IgnoreEventsWithNoException)
             {
-                var tags = SendLogEventInfoPropertiesAsTags
-                    ? logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString())
-                    : null;
-
-                var extras = SendLogEventInfoPropertiesAsTags
-                    ? null
-                    : logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
-
-                client.Value.Logger = logEvent.LoggerName;
-
-                // If the log event did not contain an exception and we're not ignoring
-                // those kinds of events then we'll send a "Message" to Sentry
-                if (logEvent.Exception == null && !IgnoreEventsWithNoException)
-                {
-                    var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                    client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
-                }
-                else if (logEvent.Exception != null)
-                {
-                    var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                    client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
-                }
+                var sentryMessage = new SentryMessage(Layout.Render(logEvent));
+                client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
             }
-            catch (Exception e)
+            else if (logEvent.Exception != null)
             {
-                InternalLogger.Error("Unable to send Sentry request: {0}", e.Message);
+                var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
+                client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
             }
         }
     }
