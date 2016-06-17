@@ -143,6 +143,58 @@ namespace NLog.Targets.Sentry.UnitTests
             Assert.IsTrue(lastSentryEvent.Level == ErrorLevel.Error);
         }
 
+
+        [Test]
+        public void TestLoggingToSentry_SendSpecifiedPropertiesAsTags()
+        {
+            var sentryClient = new Mock<IRavenClient>();
+            SentryEvent lastSentryEvent = null;
+
+            sentryClient
+                .Setup(x => x.Capture(It.IsAny<SentryEvent>()))
+                .Callback((SentryEvent sentryEvent) =>
+                {
+                    lastSentryEvent = sentryEvent;
+                })
+                .Returns("Done");
+
+            // Setup NLog
+            var tag1 = "tag1";
+            var tag2 = "tag2";
+            var tag1Value = "abcde";
+            var tag2Value = "fghij";
+
+            var sentryTarget = new SentryTarget(() => sentryClient.Object)
+            {
+                Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
+                TagProperties = tag1,
+            };
+            var configuration = new LoggingConfiguration();
+            configuration.AddTarget("NLogSentry", sentryTarget);
+            configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
+            LogManager.Configuration = configuration;
+
+
+            try
+            {
+                throw new Exception("Oh No!");
+            }
+            catch (Exception e)
+            {
+                var logger = LogManager.GetCurrentClassLogger();
+
+                var logEventInfo = LogEventInfo.Create(LogLevel.Error, "default", "Error Message", e);
+                logEventInfo.Properties.Add(tag1, tag1Value);
+                logEventInfo.Properties.Add(tag2, tag2Value);
+                logger.Log(logEventInfo);
+            }
+
+            Assert.IsTrue(lastSentryEvent.Message == "Oh No!");
+            CollectionAssert.AreEqual(new Dictionary<string, string> { { tag1, tag1Value } }, lastSentryEvent.Tags);
+            CollectionAssert.AreEqual(new Dictionary<string, string> { { tag2, tag2Value } }, (Dictionary<string, string>)lastSentryEvent.Extra);
+            Assert.IsTrue(lastSentryEvent.Level == ErrorLevel.Error);
+        }
+
         [TestCase("Trace", 0, ErrorLevel.Debug)]
         [TestCase("Debug", 1, ErrorLevel.Debug)]
         [TestCase("Info",  2, ErrorLevel.Info)]

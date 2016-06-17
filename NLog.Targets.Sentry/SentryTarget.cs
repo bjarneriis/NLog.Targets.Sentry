@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NLog.Config;
+using NLog.Layouts;
 using SharpRaven;
 using SharpRaven.Data;
 
@@ -30,6 +31,11 @@ namespace NLog.Targets
         /// Determines whether event properites will be sent to sentry as Tags or not
         /// </summary>
         public bool SendLogEventInfoPropertiesAsTags { get; set; }
+
+        /// <summary>
+        /// A comma separated list of NLog property names to be used as tags.
+        /// </summary>
+        public string TagProperties { get; set; }
 
         /// <summary>
         /// Constructor
@@ -110,8 +116,28 @@ namespace NLog.Targets
             }
             else
             {
+                foreach (var tagPropertyKey in RenderTagProperties())
+                {
+                    string propertyValue;
+                    if (propertiesAsStrings.TryGetValue(tagPropertyKey, out propertyValue))
+                    {
+                        sentryEvent.Tags.Add(tagPropertyKey, propertyValue);
+                        propertiesAsStrings.Remove(tagPropertyKey);
+                    }
+                }
+
                 sentryEvent.Extra = propertiesAsStrings;
             }
+        }
+
+        private IEnumerable<string> RenderTagProperties()
+        {
+            if (string.IsNullOrWhiteSpace(TagProperties))
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            return new HashSet<string>(TagProperties.Split(',').Select(s => s.Trim()));
         }
 
         private static Dictionary<string, string> ConvertPropertiesToStrings(IDictionary<object, object> properties)
