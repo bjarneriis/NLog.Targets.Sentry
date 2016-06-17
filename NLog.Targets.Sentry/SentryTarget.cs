@@ -15,19 +15,6 @@ namespace NLog.Targets
         private readonly Func<IRavenClient> ravenClientFactory;
 
         /// <summary>
-        /// Map of NLog log levels to Raven/Sentry log levels
-        /// </summary>
-        protected static readonly IDictionary<LogLevel, ErrorLevel> LoggingLevelMap = new Dictionary<LogLevel, ErrorLevel>
-        {
-            {LogLevel.Debug, ErrorLevel.Debug},
-            {LogLevel.Error, ErrorLevel.Error},
-            {LogLevel.Fatal, ErrorLevel.Fatal},
-            {LogLevel.Info, ErrorLevel.Info},
-            {LogLevel.Trace, ErrorLevel.Debug},
-            {LogLevel.Warn, ErrorLevel.Warning},
-        };
-
-        /// <summary>
         /// The DSN for the Sentry host
         /// </summary>
         [RequiredParameter]
@@ -65,6 +52,10 @@ namespace NLog.Targets
         /// <param name="logEvent">Logging event to be written out.</param>
         protected override void Write(LogEventInfo logEvent)
         {
+            var level = TryGetErrorLevel(logEvent.Level);
+            // Level is set to "Off", so exit.
+            if (level == null) return;
+
             var propertiesAsStrings = (
                 from property in logEvent.Properties
                 let stringKey = ToStringOrNull(property.Key)
@@ -87,12 +78,12 @@ namespace NLog.Targets
             if (logEvent.Exception == null && !IgnoreEventsWithNoException)
             {
                 var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                client.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
+                client.CaptureMessage(sentryMessage, level.Value, extra: extras, tags: tags);
             }
             else if (logEvent.Exception != null)
             {
                 var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                client.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
+                client.CaptureException(logEvent.Exception, extra: extras, level: level.Value, message: sentryMessage, tags: tags);
             }
         }
 
@@ -111,6 +102,34 @@ namespace NLog.Targets
             }
 
             return obj.ToString();
+        }
+
+        internal static ErrorLevel? TryGetErrorLevel(LogLevel level)
+        {
+            if (level == null)
+            {
+                return null;
+            }
+
+            // For ordinals, see https://github.com/NLog/NLog/blob/master/src/NLog/LogLevel.cs
+            switch (level.Ordinal)
+            {
+                case 0: // Trace
+                case 1: // Debug
+                    return ErrorLevel.Debug;
+                case 2:
+                    return ErrorLevel.Info;
+                case 3:
+                    return ErrorLevel.Warning;
+                case 4:
+                    return ErrorLevel.Error;
+                case 5:
+                    return ErrorLevel.Fatal;
+                case 6: // Off
+                    return null;
+                default:
+                    throw new Exception(string.Format("Unable to map NLog LogLevel of {0} to a Sentry ErrorLevel", level));
+            }
         }
     }
 }

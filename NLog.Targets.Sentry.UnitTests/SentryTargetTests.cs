@@ -150,5 +150,20 @@ namespace NLog.Targets.Sentry.UnitTests
             Assert.IsTrue(lTags != null);
             Assert.IsTrue(lErrorLevel == ErrorLevel.Error);
         }
+
+        [TestCase("Trace", 0, ErrorLevel.Debug)]
+        [TestCase("Debug", 1, ErrorLevel.Debug)]
+        [TestCase("Info",  2, ErrorLevel.Info)]
+        [TestCase("Warn",  3, ErrorLevel.Warning)]
+        [TestCase("Error", 4, ErrorLevel.Error)]
+        [TestCase("Fatal", 5, ErrorLevel.Fatal)]
+        [TestCase("Off",   6, null)]
+        public void TestLevelMappings(string name, int ordinal, ErrorLevel? expectedErrorLevel)
+        {
+            var level = LogLevel.FromString(name);
+            Assert.AreEqual(level, LogLevel.FromOrdinal(ordinal));
+            var errorLevel = SentryTarget.TryGetErrorLevel(level);
+            Assert.AreEqual(expectedErrorLevel, errorLevel);
+        }
     }
 }
