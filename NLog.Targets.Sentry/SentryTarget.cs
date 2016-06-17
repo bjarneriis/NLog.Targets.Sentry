@@ -10,7 +10,7 @@ namespace NLog.Targets
 // ReSharper restore CheckNamespace
 {
     [Target("Sentry")]
-    public class SentryTarget : TargetWithLayout
+    public class SentryTarget : Target
     {
         private readonly Func<IRavenClient> ravenClientFactory;
 
@@ -80,7 +80,7 @@ namespace NLog.Targets
             {
                 if (!IgnoreEventsWithNoException)
                 {
-                    var sentryMessage = new SentryMessage(Layout.Render(logEvent));
+                    var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
                     client.CaptureMessage(sentryMessage, level.Value, extra: extras, tags: tags);
                 }
             }
