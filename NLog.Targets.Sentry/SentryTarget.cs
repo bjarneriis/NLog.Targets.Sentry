@@ -72,13 +72,21 @@ namespace NLog.Targets
         /// <param name="logEvent">Logging event to be written out.</param>
         protected override void Write(LogEventInfo logEvent)
         {
+            var propertiesAsStrings = (
+                from property in logEvent.Properties
+                let stringKey = ToStringOrNull(property.Key)
+                let stringValue = ToStringOrNull(property.Value)
+                where stringKey != null && stringValue != null
+                group stringValue by stringKey)
+                .ToDictionary(x => x.Key, x => string.Join(",", x));
+
             var tags = SendLogEventInfoPropertiesAsTags
-                ? logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString())
+                ? propertiesAsStrings
                 : null;
 
             var extras = SendLogEventInfoPropertiesAsTags
                 ? null
-                : logEvent.Properties.ToDictionary(x => x.Key.ToString(), x => x.Value.ToString());
+                : propertiesAsStrings;
 
             client.Value.Logger = logEvent.LoggerName;
 
@@ -94,6 +102,16 @@ namespace NLog.Targets
                 var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
                 client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
             }
+        }
+
+        private static string ToStringOrNull(object obj)
+        {
+            if (obj == null)
+            {
+                return null;
+            }
+
+            return obj.ToString();
         }
     }
 }
