@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using NLog.Common;
 using NLog.Config;
 using SharpRaven;
 using SharpRaven.Data;
@@ -13,8 +12,7 @@ namespace NLog.Targets
     [Target("Sentry")]
     public class SentryTarget : TargetWithLayout
     {
-        private Dsn dsn;
-        private readonly Lazy<IRavenClient> client;
+        private readonly Func<IRavenClient> ravenClientFactory;
 
         /// <summary>
         /// Map of NLog log levels to Raven/Sentry log levels
@@ -33,11 +31,7 @@ namespace NLog.Targets
         /// The DSN for the Sentry host
         /// </summary>
         [RequiredParameter]
-        public string Dsn
-        {
-            get { return dsn == null ? null : dsn.ToString(); }
-            set { dsn = new Dsn(value); }
-        }
+        public string Dsn { get; set; }
 
         /// <summary>
         /// Determines whether events with no exceptions will be send to Sentry or not
@@ -54,16 +48,15 @@ namespace NLog.Targets
         /// </summary>
         public SentryTarget()
         {
-            client = new Lazy<IRavenClient>(() => new RavenClient(dsn));
         }
 
         /// <summary>
         /// Internal constructor, used for unit-testing
         /// </summary>
-        /// <param name="ravenClient">A <see cref="IRavenClient"/></param>
-        internal SentryTarget(IRavenClient ravenClient) : this()
+        /// <param name="createRavenClient">Constructor of a <see cref="IRavenClient"/></param>
+        internal SentryTarget(Func<IRavenClient> createRavenClient)
         {
-            client = new Lazy<IRavenClient>(() => ravenClient);
+            this.ravenClientFactory = createRavenClient;
         }
 
         /// <summary>
@@ -88,20 +81,26 @@ namespace NLog.Targets
                 ? null
                 : propertiesAsStrings;
 
-            client.Value.Logger = logEvent.LoggerName;
-
+            var client = CreateClient(logEvent);
             // If the log event did not contain an exception and we're not ignoring
             // those kinds of events then we'll send a "Message" to Sentry
             if (logEvent.Exception == null && !IgnoreEventsWithNoException)
             {
                 var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
+                client.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
             }
             else if (logEvent.Exception != null)
             {
                 var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
+                client.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
             }
+        }
+
+        private IRavenClient CreateClient(LogEventInfo logEvent)
+        {
+            var client = ravenClientFactory != null ? ravenClientFactory() : new RavenClient(new Dsn(Dsn));
+            client.Logger = logEvent.LoggerName;
+            return client;
         }
 
         private static string ToStringOrNull(object obj)

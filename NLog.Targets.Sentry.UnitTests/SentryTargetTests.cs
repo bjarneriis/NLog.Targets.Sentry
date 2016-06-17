@@ -40,7 +40,20 @@ namespace NLog.Targets.Sentry.UnitTests
         [Test]
         public void TestBadDsn()
         {
-            Assert.Throws<ArgumentException>(() => new SentryTarget(null) { Dsn = "http://localhost" });
+            var sentryTarget = new SentryTarget { Dsn = "http://localhost" };
+            var configuration = new LoggingConfiguration();
+            configuration.AddTarget("NLogSentry", sentryTarget);
+            configuration.LoggingRules.Add(new LoggingRule("*", LogLevel.Trace, sentryTarget));
+            LogManager.Configuration = configuration;
+            try
+            {
+                LogManager.GetCurrentClassLogger().Info("Test");
+                Assert.Fail("Expected exception not raised");
+            }
+            catch (NLogRuntimeException ex)
+            {
+                Assert.IsInstanceOf<ArgumentException>(ex.InnerException);
+            }
         }
 
         [Test]
@@ -62,7 +75,7 @@ namespace NLog.Targets.Sentry.UnitTests
                 .Returns("Done");
 
             // Setup NLog
-            var sentryTarget = new SentryTarget(sentryClient.Object)
+            var sentryTarget = new SentryTarget(() => sentryClient.Object)
             {
                 Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
             };
@@ -108,7 +121,7 @@ namespace NLog.Targets.Sentry.UnitTests
                 .Returns("Done");
 
             // Setup NLog
-            var sentryTarget = new SentryTarget(sentryClient.Object)
+            var sentryTarget = new SentryTarget(() => sentryClient.Object)
             {
                 Dsn = "http://25e27038b1df4930b93c96c170d95527:d87ac60bb07b4be8908845b23e914dae@test/4",
                 SendLogEventInfoPropertiesAsTags = true,
