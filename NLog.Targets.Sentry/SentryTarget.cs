@@ -53,42 +53,10 @@ namespace NLog.Targets
         /// <param name="logEvent">Logging event to be written out.</param>
         protected override void Write(LogEventInfo logEvent)
         {
-            var level = TryGetErrorLevel(logEvent.Level);
-            // Level is set to "Off", so exit.
-            if (level == null) return;
-
-            var propertiesAsStrings = (
-                from property in logEvent.Properties
-                let stringKey = ToStringOrNull(property.Key)
-                let stringValue = ToStringOrNull(property.Value)
-                where stringKey != null && stringValue != null
-                group stringValue by stringKey)
-                .ToDictionary(x => x.Key, x => string.Join(",", x));
-
-            var tags = SendLogEventInfoPropertiesAsTags
-                ? propertiesAsStrings
-                : null;
-
-            var extras = SendLogEventInfoPropertiesAsTags
-                ? null
-                : propertiesAsStrings;
-
+            var sentryEvent = ToSentryEvent(logEvent);
+            if (sentryEvent == null) return;
             var client = CreateClient(logEvent);
-            // If the log event did not contain an exception and we're not ignoring
-            // those kinds of events then we'll send a "Message" to Sentry
-            if (logEvent.Exception == null)
-            {
-                if (!IgnoreEventsWithNoException)
-                {
-                    var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                    client.CaptureMessage(sentryMessage, level.Value, extra: extras, tags: tags);
-                }
-            }
-            else
-            {
-                var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                client.CaptureException(logEvent.Exception, extra: extras, level: level.Value, message: sentryMessage, tags: tags);
-            }
+            client.Capture(sentryEvent);
         }
 
         private IRavenClient CreateClient(LogEventInfo logEvent)
@@ -96,6 +64,65 @@ namespace NLog.Targets
             var client = ravenClientFactory != null ? ravenClientFactory() : new RavenClient(new Dsn(Dsn));
             client.Logger = logEvent.LoggerName;
             return client;
+        }
+
+        private SentryEvent ToSentryEvent(LogEventInfo logEvent)
+        {
+            var level = TryGetErrorLevel(logEvent.Level);
+            // Level is set to "Off", so exit.
+            if (level == null)
+            {
+                return null;
+            }
+
+            var sentryEvent = CreateSentryEvent(logEvent);
+            if (IgnoreEventsWithNoException && sentryEvent.Exception == null)
+            {
+                return null;
+            }
+
+            sentryEvent.Level = level.Value;
+            AppendEventDetails(sentryEvent, logEvent.Properties);
+            return sentryEvent;
+        }
+
+        private static SentryEvent CreateSentryEvent(LogEventInfo logEvent)
+        {
+            if (logEvent.Exception != null)
+            {
+                return new SentryEvent(logEvent.Exception);
+            }
+            else
+            {
+                return new SentryEvent(new SentryMessage(logEvent.FormattedMessage));
+            }
+        }
+
+        private void AppendEventDetails(SentryEvent sentryEvent, IDictionary<object, object> properties)
+        {
+            var propertiesAsStrings = ConvertPropertiesToStrings(properties);
+            if (SendLogEventInfoPropertiesAsTags)
+            {
+                foreach (var tag in propertiesAsStrings)
+                {
+                    sentryEvent.Tags.Add(tag);
+                }
+            }
+            else
+            {
+                sentryEvent.Extra = propertiesAsStrings;
+            }
+        }
+
+        private static Dictionary<string, string> ConvertPropertiesToStrings(IDictionary<object, object> properties)
+        {
+            return (
+                from property in properties
+                let stringKey = ToStringOrNull(property.Key)
+                let stringValue = ToStringOrNull(property.Value)
+                where stringKey != null && stringValue != null
+                group stringValue by stringKey)
+                .ToDictionary(x => x.Key, x => string.Join(",", x));
         }
 
         private static string ToStringOrNull(object obj)
