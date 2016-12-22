@@ -88,13 +88,22 @@ namespace NLog.Targets
                 // those kinds of events then we'll send a "Message" to Sentry
                 if (logEvent.Exception == null && !IgnoreEventsWithNoException)
                 {
-                    var sentryMessage = new SentryMessage(Layout.Render(logEvent));
-                    client.Value.CaptureMessage(sentryMessage, LoggingLevelMap[logEvent.Level], extra: extras, tags: tags);
+                    var sentryEvent = new SentryEvent(new SentryMessage(Layout.Render(logEvent)))
+                    {
+                        Level = LoggingLevelMap[logEvent.Level],
+                        Extra = extras
+                    };
+                    client.Value.Capture(sentryEvent);
                 }
                 else if (logEvent.Exception != null)
                 {
-                    var sentryMessage = new SentryMessage(logEvent.FormattedMessage);
-                    client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
+                    var sentryEvent = new SentryEvent(logEvent.Exception)
+                    {
+                        Level = LoggingLevelMap[logEvent.Level],
+                        Extra = extras,
+                        Message = new SentryMessage(logEvent.FormattedMessage)
+                    };
+                    client.Value.Capture(sentryEvent);
                 }
             }
             catch (Exception e)

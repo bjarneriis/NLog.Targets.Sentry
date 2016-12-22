@@ -16,7 +16,7 @@ To use the Sentry target, simply add it an extension in the NLog.config file and
     <add assembly="NLog.Targets.Sentry" />
   </extensions>
 
-  <targets>
+  <targets async="true">
     <target name="Sentry" type="Sentry" dsn="<your sentry dsn>"/>
   </targets>
 
