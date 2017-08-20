@@ -54,22 +54,19 @@ namespace NLog.Targets
         /// </summary>
         public SentryTarget()
         {
-            client = new Lazy<IRavenClient>(() => new RavenClient(dsn));
+            client = new Lazy<IRavenClient>(this.DefaultClientFactory);
         }
 
         /// <summary>
         /// Internal constructor, used for unit-testing
         /// </summary>
         /// <param name="ravenClient">A <see cref="IRavenClient"/></param>
-        internal SentryTarget(IRavenClient ravenClient) : this()
+        internal SentryTarget(IRavenClient ravenClient)
         {
             client = new Lazy<IRavenClient>(() => ravenClient);
         }
 
-        /// <summary>
-        /// Writes logging event to the log target.
-        /// </summary>
-        /// <param name="logEvent">Logging event to be written out.</param>
+        /// <inheritdoc />
         protected override void Write(LogEventInfo logEvent)
         {
             try
@@ -97,11 +94,35 @@ namespace NLog.Targets
                     client.Value.CaptureException(logEvent.Exception, extra: extras, level: LoggingLevelMap[logEvent.Level], message: sentryMessage, tags: tags);
                 }
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                InternalLogger.Error("Unable to send Sentry request: {0}", e.Message);
+                this.LogException(ex);
             }
+        }
+
+        /// <inheritdoc />
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && this.client.IsValueCreated)
+            {
+                var ravenClient = this.client.Value as RavenClient;
+                if (ravenClient != null)
+                {
+                    ravenClient.ErrorOnCapture = null;
+                }
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private IRavenClient DefaultClientFactory()
+        {
+            return new RavenClient(dsn) { ErrorOnCapture = this.LogException };
+        }
+
+        private void LogException(Exception ex)
+        {
+            InternalLogger.Error("Unable to send Sentry request: {0}", ex.Message);
         }
     }
 }
-
